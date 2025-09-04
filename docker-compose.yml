@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  database:
+    image: postgres:15-alpine
+    container_name: fixed_assets_db
+    environment:
+      POSTGRES_DB: fixed_assets_management_db
+      POSTGRES_USER: belal
+      POSTGRES_PASSWORD: belal
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fixed_assets_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U belal -d fixed_assets_management_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Fixed Assets Management System API
+  api:
+    build: .
+    container_name: fixed_assets_api
+    ports:
+      - "5000:5000"
+    environment:
+      - ENV=development
+      - DATABASE_HOST=database
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=fixed_assets_management_db
+      - DATABASE_USERNAME=belal
+      - DATABASE_PASSWORD=belal
+    volumes:
+      - ./uploads:/app/uploads
+      - ./reports:/app/reports
+      - ./logs:/app/logs
+      - ./backups:/app/backups
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - fixed_assets_network
+    restart: unless-stopped
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: fixed_assets_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@fixedassets.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_LISTEN_PORT: 8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - database
+    networks:
+      - fixed_assets_network
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  fixed_assets_network:
+    driver: bridge
